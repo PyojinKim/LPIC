@@ -1,9 +1,9 @@
-function [R_cM, vpInfo, planeNormalVector, surfaceNormalVector, surfacePixelPoint] = seekManhattanWorld(imageCurForLine, imageCur, depthCur, cam, optsLAPO)
+function [R_cM, vpInfo, planeNormalVector, surfaceNormalVector, surfacePixelPoint] = seekManhattanWorld(imageCurForLine, imageCur, depthCur, cam, optsLPIC)
 
 % assign current parameters
-lineDetector = optsLAPO.lineDetector;
-lineDescriptor = optsLAPO.lineDescriptor;
-lineLength = optsLAPO.lineLength;
+lineDetector = optsLPIC.lineDetector;
+lineDescriptor = optsLPIC.lineDescriptor;
+lineLength = optsLPIC.lineLength;
 K = cam.K_pyramid(:,:,1);
 Kinv = inv(K);
 
@@ -11,14 +11,14 @@ Kinv = inv(K);
 %% initialize and seek dominant 1-plane
 
 % plane and surface normal vector
-[pNV, ~] = estimatePlaneNormalRANSAC(imageCur, depthCur, cam, optsLAPO);
-[sNV, sPP] = estimateSurfaceNormalGradient_mex(imageCur, depthCur, cam, optsLAPO);
+[pNV, ~] = estimatePlaneNormalRANSAC(imageCur, depthCur, cam, optsLPIC);
+[sNV, sPP] = estimateSurfaceNormalGradient_mex(imageCur, depthCur, cam, optsLPIC);
 surfaceNormalVector = sNV;
 surfacePixelPoint = sPP;
 
 
 % refine plane normal vector
-[pNV, isTracked] = trackSinglePlane(pNV, sNV, optsLAPO);
+[pNV, isTracked] = trackSinglePlane(pNV, sNV, optsLPIC);
 planeNormalVector = pNV;
 if (isTracked == 0)
     disp(num2str(imgIdx));
@@ -43,7 +43,7 @@ lines = extractUniqueLines(lines, cam);
 
 
 % do 1-line RANSAC
-[R_cM, clusteredLinesIdx] = detectOrthogonalLineRANSAC_ODEP(planeNormalVector, lines, Kinv, cam, optsLAPO);
+[R_cM, clusteredLinesIdx] = detectOrthogonalLineRANSAC_ODEP(planeNormalVector, lines, Kinv, cam, optsLPIC);
 linesVP = cell(1,3);
 for k = 1:3
     

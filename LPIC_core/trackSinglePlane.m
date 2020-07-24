@@ -1,11 +1,11 @@
-function [pNV_update, isTracked] = trackSinglePlane(planeNormalVector, surfaceNormalVector, optsLAPO)
+function [pNV_update, isTracked] = trackSinglePlane(planeNormalVector, surfaceNormalVector, optsLPIC)
 
 % pre-defined variables
-minSampleRatio = optsLAPO.minSampleRatio;
-iterNum = optsLAPO.iterNum;
-convergeAngle = optsLAPO.convergeAngle;
-halfApexAngle = optsLAPO.halfApexAngle;
-c = optsLAPO.c;
+minSampleRatio = optsLPIC.minSampleRatio;
+iterNum = optsLPIC.iterNum;
+convergeAngle = optsLPIC.convergeAngle;
+halfApexAngle = optsLPIC.halfApexAngle;
+c = optsLPIC.c;
 
 
 %% track single plane (Manhattan world frame)

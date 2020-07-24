@@ -8,7 +8,7 @@ addpath('addon/lsd_1.6');
 addpath('addon/lsd_1.6/Matlab');
 
 
-%% basic setup for LPRVO
+%% basic setup for LPIC
 
 % choose the experiment case
 % TUM RGBD dataset (1~XX)
@@ -16,12 +16,12 @@ expCase = 1;
 
 % are figures drawn?
 % 1 : yes, draw figures to see current status
-% 0 : no, just run LPRVO
+% 0 : no, just run LPIC
 toVisualize = 1;
 
 % are data results saved?
 % 1 : yes, save the variables and results
-% 0 : no, just run LPRVO
+% 0 : no, just run LPIC
 toSave = 1;
 
 
@@ -34,12 +34,11 @@ rawTUMRGBDdataset = rawTUMRGBDdataset_load(datasetPath, freiburg_type);
 
 % camera calibration parameters
 [TUMRGBDdataset] = getSyncTUMRGBDdataset(rawTUMRGBDdataset, imInit, M);
-optsLPRVO = load_param_LPRVO;
-cam = initialize_cam_TUM_RGBD(TUMRGBDdataset, optsLPRVO.imagePyramidLevel);
+optsLPIC = load_param_LPIC;
+cam = initialize_cam_TUM_RGBD(TUMRGBDdataset, optsLPIC.imagePyramidLevel);
 
 
 %% load ground truth data
-
 
 % ground truth trajectory in TUM RGBD dataset
 R_gc_true = zeros(3,3,M);
@@ -80,15 +79,14 @@ for k = 1:size(p_gc_true,2)
 end
 
 
-%% main LPRVO part
+%% main LPIC part
 
-
-% 1. Manhattan frame tracking for LPRVO
-systemInited_LPRVO = false;
+% 1. Manhattan frame tracking for LPIC
+systemInited_LPIC = false;
 
 R_gc1 = R_gc_true(:,:,1);
-R_gc_LPRVO = zeros(3,3,M);
-R_gc_LPRVO(:,:,1) = R_gc1;
+R_gc_LPIC = zeros(3,3,M);
+R_gc_LPIC(:,:,1) = R_gc1;
 
 
 % 2. make figures to visualize current status
@@ -109,11 +107,11 @@ end
 
 
 % 3. record vpInfo variables
-vpInfo_LPRVO = cell(1,M);
-pNV_LPRVO = cell(1,M);
+vpInfo_LPIC = cell(1,M);
+pNV_LPIC = cell(1,M);
 
 
-% do LPRVO
+% do LPIC
 for imgIdx = 1:M
     %% 1. Manhattan frame tracking
     
@@ -121,39 +119,39 @@ for imgIdx = 1:M
     imageCurForLine = getImgInTUMRGBDdataset(datasetPath, TUMRGBDdataset, cam, imgIdx, 'gray');
     imageCurForMW = getImgInTUMRGBDdataset(datasetPath, TUMRGBDdataset, cam, imgIdx, 'rgb');
     depthCurForMW = getImgInTUMRGBDdataset(datasetPath, TUMRGBDdataset, cam, imgIdx, 'depth');
-    [imageCurForMW, depthCurForMW] = getImgPyramid(imageCurForMW, depthCurForMW, optsLPRVO.imagePyramidLevel);
+    [imageCurForMW, depthCurForMW] = getImgPyramid(imageCurForMW, depthCurForMW, optsLPIC.imagePyramidLevel);
     
     
     % for the first time in this loop
-    if (~systemInited_LPRVO)
+    if (~systemInited_LPIC)
         
         % initialize and seek the dominant MF
-        [R_cM, vpInfo, pNV, sNV, sPP] = seekManhattanWorld(imageCurForLine, imageCurForMW, depthCurForMW, cam, optsLPRVO);
+        [R_cM, vpInfo, pNV, sNV, sPP] = seekManhattanWorld(imageCurForLine, imageCurForMW, depthCurForMW, cam, optsLPIC);
         R_c1M = R_cM;
         R_gM = R_gc1 * R_c1M;
-        systemInited_LPRVO = true;
+        systemInited_LPIC = true;
         
         % initialize Kalman filter
-        [state] = initializeVPs(R_c1M, optsLPRVO);
+        [state] = initializeVPs(R_c1M, optsLPIC);
         
-    elseif (systemInited_LPRVO)
+    elseif (systemInited_LPIC)
         
         % propagation step in KF
-        [state] = predictVPs(state, optsLPRVO);
+        [state] = predictVPs(state, optsLPIC);
         
         % track Manhattan frame
-        [R_cM, vpInfo, pNV, sNV, sPP] = trackManhattanWorld(R_cM, pNV, imageCurForLine, imageCurForMW, depthCurForMW, cam, optsLPRVO);
-        vpInfo_LPRVO{imgIdx} = vpInfo;
-        pNV_LPRVO{imgIdx} = pNV;
+        [R_cM, vpInfo, pNV, sNV, sPP] = trackManhattanWorld(R_cM, pNV, imageCurForLine, imageCurForMW, depthCurForMW, cam, optsLPIC);
+        vpInfo_LPIC{imgIdx} = vpInfo;
+        pNV_LPIC{imgIdx} = pNV;
         
         % correction step in KF
-        [state] = updateVPs(state, R_cM, optsLPRVO);
+        [state] = updateVPs(state, R_cM, optsLPIC);
         [state, R_cM] = extractVPs(state);
         
         
         % update current camera pose
         R_gc_current = R_gM * inv(R_cM);
-        R_gc_LPRVO(:,:,imgIdx) = R_gc_current;
+        R_gc_LPIC(:,:,imgIdx) = R_gc_current;
     end
     
     
@@ -168,52 +166,51 @@ for imgIdx = 1:M
 end
 
 % convert camera pose representation
-stateEsti_LPRVO = zeros(3,M);
+stateEsti_LPIC = zeros(3,M);
 for k = 1:M
-    [yaw, pitch, roll] = dcm2angle(R_gc_LPRVO(:,:,k));
-    stateEsti_LPRVO(:,k) = [roll; pitch; yaw];
+    [yaw, pitch, roll] = dcm2angle(R_gc_LPIC(:,:,k));
+    stateEsti_LPIC(:,k) = [roll; pitch; yaw];
 end
 
 
 %% plot error metric value (RPE, ATE)
 
-
-% 1) LPRVO rotation estimation trajectory
+% 1) LPIC rotation estimation trajectory
 figure;
 subplot(3,1,1);
 plot(stateTrue(4,:),'k','LineWidth',2); hold on; grid on;
-plot(stateEsti_LPRVO(1,:),'r','LineWidth',2); hold off; axis tight; ylabel('roll (rad)');
-legend('True','LPRVO Matlab');
+plot(stateEsti_LPIC(1,:),'r','LineWidth',2); hold off; axis tight; ylabel('roll (rad)');
+legend('True','LPIC Matlab');
 subplot(3,1,2);
 plot(stateTrue(5,:),'k','LineWidth',2); hold on; grid on;
-plot(stateEsti_LPRVO(2,:),'r','LineWidth',2); hold off; axis tight; ylabel('pitch (rad)');
+plot(stateEsti_LPIC(2,:),'r','LineWidth',2); hold off; axis tight; ylabel('pitch (rad)');
 subplot(3,1,3);
 plot(stateTrue(6,:),'k','LineWidth',2); hold on; grid on;
-plot(stateEsti_LPRVO(3,:),'r','LineWidth',2); hold off; axis tight; ylabel('yaw (rad)');
+plot(stateEsti_LPIC(3,:),'r','LineWidth',2); hold off; axis tight; ylabel('yaw (rad)');
 
 
 % 2) calculate rotation matrix difference
-[RMD_MEAN_LPRVO, RMD_LPRVO] = calcRMD(R_gc_LPRVO, R_gc_true);
-fprintf('MEAN of RMD [deg] : %f \n' , RMD_MEAN_LPRVO);
-fprintf('std. of RMD [deg] : %f \n' , std(RMD_LPRVO));
+[RMD_MEAN_LPIC, RMD_LPIC] = calcRMD(R_gc_LPIC, R_gc_true);
+fprintf('MEAN of RMD [deg] : %f \n' , RMD_MEAN_LPIC);
+fprintf('std. of RMD [deg] : %f \n' , std(RMD_LPIC));
 
 
 % 3) draw figures for rotation matrix difference
 figure;
-plot(RMD_LPRVO, 'r*'); hold on; grid on;
+plot(RMD_LPIC, 'r*'); hold on; grid on;
 curve_x = 1:M;
-p = polyfit(curve_x, RMD_LPRVO, 3);
+p = polyfit(curve_x, RMD_LPIC, 3);
 curve_y = polyval(p, curve_x); curve_y(curve_y < 0) = 0;
 plot(curve_x, curve_y, 'g-', 'LineWidth',5); hold off; axis tight; ylabel('RMD (deg)');
 legend('RMD', 'Fitting Curve','Location','northwest');
 
 figure;
-ploterrhist(RMD_LPRVO, 'bins', 25);
+ploterrhist(RMD_LPIC, 'bins', 25);
 
 
 %% save the experiment data for CVPR 2018
 
 if (toSave)
-    save([SaveDir '/LPRVO.mat']);
+    save([SaveDir '/LPIC.mat']);
 end
 
